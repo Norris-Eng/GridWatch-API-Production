@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRIDWATCH // CONTINENTAL MONITOR</title>
+    <!-- FAVICON -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2250%22 fill=%22%2300ff41%22/></svg>">
+
+    <meta name="description" content="Real-time monitoring of US Power Grid load and stress levels.">
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        /* --- TERMINAL THEME --- */
+        body { background-color: #050505; color: #e0e0e0; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { border: 1px solid #333; padding: 25px; box-shadow: 0 0 40px rgba(0, 0, 0, 0.8); width: 100%; max-width: 1920px; background-color: #0a0a0a; display: flex; flex-direction: column; min-height: 90vh; }
+
+        /* HEADER & NAV */
+        h1 { text-align: center; letter-spacing: 4px; border-bottom: 2px solid #00ff41; padding-bottom: 20px; margin-top: 0; font-size: 1.8rem; text-transform: uppercase; color: #00ff41; text-shadow: 0 0 10px rgba(0, 255, 65, 0.3); margin-bottom: 20px; }
+        .status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background-color: #00ff41; box-shadow: 0 0 10px #00ff41; animation: pulse 2s infinite; margin-right: 15px; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+
+        /* COMMAND STRIP (NAVIGATION) */
+        .command-strip { display: flex; justify-content: center; gap: 30px; margin-bottom: 40px; font-size: 0.9em; flex-wrap: wrap; }
+        .nav-link { text-decoration: none; color: #888; transition: color 0.2s; padding: 5px 10px; border: 1px solid transparent; }
+        .nav-link:hover { color: #00ff41; border-color: #333; background: #111; }
+
+        .nav-btn-primary {
+            background-color: #00ff41;
+            color: #000;
+            font-weight: bold;
+            padding: 5px 15px;
+            text-decoration: none;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .nav-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 0 25px rgba(0, 255, 65, 0.6); }
+
+        /* GRID LAYOUT */
+        .mega-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; flex-grow: 1; }
+        .col-header { text-align: center; font-size: 1.1em; font-weight: bold; margin-bottom: 20px; color: #666; border-bottom: 1px dashed #333; padding-bottom: 5px; letter-spacing: 2px; }
+        .sub-grid { display: grid; grid-template-columns: 1fr; gap: 20px; }
+
+        /* SMART CARDS */
+        .metric-box { border: 1px solid #222; background: #0e0e0e; padding: 15px; display: flex; flex-direction: column; height: 260px; transition: border-color 0.2s; position: relative; }
+        .metric-box:hover { border-color: #00ff41; }
+
+        /* CARD HEADER */
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 8px; }
+        .region-title { font-size: 0.9em; font-weight: bold; color: #888; letter-spacing: 1px; display: flex; align-items: center; }
+
+        /* UTILIZATION PILL */
+        .util-pill { font-size: 0.75em; padding: 2px 6px; border-radius: 4px; margin-left: 10px; background: #111; border: 1px solid #333; color: #666; }
+        .util-normal { color: #00ff41; border-color: #00ff41; box-shadow: 0 0 5px rgba(0, 255, 65, 0.2); }
+        .util-warn { color: #ffbd00; border-color: #ffbd00; box-shadow: 0 0 5px rgba(255, 189, 0, 0.2); }
+        .util-crit { color: #ff003c; border-color: #ff003c; box-shadow: 0 0 5px rgba(255, 0, 60, 0.2); }
+
+        .live-data { text-align: right; }
+        .primary-value { font-size: 1.6em; font-weight: bold; display: block; }
+        .secondary-value { font-size: 0.9em; color: #00d2ff; display: block; margin-top: 2px; font-weight: bold; letter-spacing: 1px; }
+
+        .price-text { color: #00ff41; text-shadow: 0 0 5px rgba(0, 255, 65, 0.2); }
+        .load-text { color: #00d2ff; }
+        .dim-text { color: #444; font-size: 0.8em; }
+
+        /* CHART CONTAINER */
+        .chart-container { flex-grow: 1; position: relative; width: 100%; height: 100%; overflow: hidden; }
+
+        /* RESPONSIVE */
+        @media (max-width: 1400px) { .mega-grid { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 900px) { .mega-grid { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1><span class="status-indicator"></span>US GRID TELEMETRY</h1>
+
+        <nav class="command-strip">
+            <a href="https://rapidapi.com/cnorris1316/api/gridwatch-us-telemetry" target="_blank" class="nav-link">[ DOCS & ARCHITECTURE ]</a>
+            <a href="https://github.com/Norris-Eng/gridwatch-home-assistant" target="_blank" class="nav-link">[ GITHUB ]</a>
+            <a href="https://rapidapi.com/cnorris1316/api/gridwatch-us-telemetry/pricing" target="_blank" class="nav-btn-primary">[ GET API KEY ]</a>
+        </nav>
+
+        <div class="mega-grid">
+            <div>
+                <div class="col-header">WESTERN INTERCONNECTION</div>
+                <div class="sub-grid">
+                    <div class="metric-box" id="box-caiso">
+                        <div class="card-header">
+                            <div class="region-title">CALIFORNIA (CAISO) <span id="caiso-util" class="util-pill">--%</span></div>
+                            <div class="live-data">
+                                <span class="primary-value price-text" id="caiso-price">--</span>
+                                <span class="secondary-value" id="caiso-load">-- MW</span>
+                            </div>
+                        </div>
+                        <div class="chart-container"><canvas id="caiso-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-bpat">
+                        <div class="card-header"><div class="region-title">NORTHWEST (BPA) <span id="bpat-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="bpat-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="bpat-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-pacw">
+                        <div class="card-header"><div class="region-title">PACIFICORP WEST <span id="pacw-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="pacw-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="pacw-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-nevp">
+                        <div class="card-header"><div class="region-title">NEVADA (NV ENERGY) <span id="nevp-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="nevp-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="nevp-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-azps">
+                        <div class="card-header"><div class="region-title">ARIZONA (APS) <span id="azps-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="azps-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="azps-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-srp">
+                        <div class="card-header"><div class="region-title">ARIZONA (SRP) <span id="srp-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="srp-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="srp-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-pace">
+                        <div class="card-header"><div class="region-title">ROCKIES (PAC-EAST) <span id="pace-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="pace-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="pace-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-pnm">
+                        <div class="card-header"><div class="region-title">NEW MEXICO (PNM) <span id="pnm-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="pnm-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="pnm-chart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="col-header">CENTRAL / TEXAS</div>
+                <div class="sub-grid">
+                    <div class="metric-box" id="box-ercot">
+                        <div class="card-header"><div class="region-title">TEXAS (ERCOT) <span id="ercot-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="ercot-price">--</span><span class="secondary-value" id="ercot-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="ercot-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-miso">
+                        <div class="card-header"><div class="region-title">MIDWEST (MISO) <span id="miso-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="miso-price">--</span><span class="secondary-value" id="miso-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="miso-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-spp">
+                        <div class="card-header"><div class="region-title">SOUTHWEST (SPP) <span id="spp-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="spp-price">--</span><span class="secondary-value" id="spp-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="spp-chart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="col-header">EASTERN INTERCONNECTION</div>
+                <div class="sub-grid">
+                    <div class="metric-box" id="box-pjm">
+                        <div class="card-header"><div class="region-title">MID-ATLANTIC (PJM) <span id="pjm-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="pjm-price">--</span><span class="secondary-value" id="pjm-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="pjm-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-nyiso">
+                        <div class="card-header"><div class="region-title">NEW YORK (NYISO) <span id="nyiso-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="nyiso-price">--</span><span class="secondary-value" id="nyiso-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="nyiso-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-isone">
+                        <div class="card-header"><div class="region-title">NEW ENGLAND (ISO-NE) <span id="isone-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="isone-price">--</span><span class="secondary-value" id="isone-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="isone-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-duk">
+                        <div class="card-header"><div class="region-title">CAROLINAS (DUKE) <span id="duk-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="duk-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="duk-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-tva">
+                        <div class="card-header"><div class="region-title">TENNESSEE (TVA) <span id="tva-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="tva-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="tva-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-soco">
+                        <div class="card-header"><div class="region-title">SOUTHERN (SOCO) <span id="soco-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="soco-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="soco-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-cple">
+                        <div class="card-header"><div class="region-title">CAROLINAS (DUKE-E) <span id="cple-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="cple-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="cple-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-sceg">
+                        <div class="card-header"><div class="region-title">SOUTH CAROLINA (DOM) <span id="sceg-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="sceg-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="sceg-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-sc">
+                        <div class="card-header"><div class="region-title">SOUTH CAROLINA (SC) <span id="sc-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="sc-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="sc-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-def">
+                        <div class="card-header"><div class="region-title">FLORIDA (DUKE-C) <span id="def-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="def-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="def-chart"></canvas></div>
+                    </div>
+
+                    <div class="metric-box" id="box-fpl">
+                        <div class="card-header"><div class="region-title">FLORIDA (FPL) <span id="fpl-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="fpl-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
+                        <div class="chart-container"><canvas id="fpl-chart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // --- CONFIGURATION ---
+    const API_BASE = "https://fa-gridwatch-nuclear-centralus.azurewebsites.net/api/dashboard";
+
+    // Global Chart Defaults
+    Chart.defaults.color = '#666';
+    Chart.defaults.font.family = "'Courier New', monospace";
+    Chart.defaults.scale.grid.color = '#222';
+    Chart.defaults.scale.grid.borderColor = '#333';
+
+    const chartInstances = {};
+
+    function renderChart(region, history) {
+        const ctx = document.getElementById(region + '-chart').getContext('2d');
+
+        history.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+        const labels = history.map(h => {
+            const date = new Date(h.timestamp);
+            return date.getHours() + ':' + String(date.getMinutes()).padStart(2, '0');
+        });
+        const loadData = history.map(h => h.load_mw);
+        const priceData = history.map(h => h.price_usd);
+
+        // --- HARDENED LOGIC: PREVENT $0 FLAT LINES ---
+        let hasPrice = priceData.some(p => p !== null && p !== undefined && p !== 0);
+
+        // REMOVED CAISO OVERRIDE (Now Tier 1)
+        // if (region === 'caiso') { hasPrice = false; }
+
+        const datasets = [];
+
+        // DATASET A: LOAD (Cyan) - Always present
+        datasets.push({
+            label: 'Load (MW)',
+            data: loadData,
+            borderColor: '#00d2ff', // Cyan
+            backgroundColor: hasPrice ? 'transparent' : 'rgba(0, 210, 255, 0.1)', // Fill if single axis
+            borderWidth: 2,
+            borderDash: hasPrice ? [5, 5] : [], // Dashed if secondary
+            pointRadius: 0,
+            yAxisID: 'y-load',
+            tension: 0.2,
+            fill: !hasPrice
+        });
+
+        // DATASET B: PRICE (Green) - Only if data exists
+        if (hasPrice) {
+            datasets.push({
+                label: 'Price ($)',
+                data: priceData,
+                borderColor: '#00ff41',
+                backgroundColor: 'rgba(0, 255, 65, 0.05)',
+                borderWidth: 2,
+                pointRadius: 0,
+                yAxisID: 'y-price',
+                tension: 0.1,
+                fill: true
+            });
+        }
+
+        if (chartInstances[region]) {
+            chartInstances[region].destroy();
+        }
+
+        chartInstances[region] = new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(0,0,0,0.9)',
+                        titleColor: '#fff',
+                        bodyFont: { family: 'Courier New' },
+                        borderColor: '#00ff41',
+                        borderWidth: 1,
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) label += context.parsed.y;
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: { display: false },
+                    'y-load': {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        grid: { display: false },
+                        ticks: { color: '#006680', font: {size: 10} }
+                    },
+                    'y-price': {
+                        type: 'linear',
+                        display: hasPrice,
+                        position: 'left',
+                        grid: { color: '#222' },
+                        ticks: { color: '#008020', callback: function(value) { return '$' + value; } }
+                    }
+                }
+            }
+        });
+    }
+
+    async function updateDashboard() {
+        const regions = [
+            'ercot', 'pjm', 'miso', 'spp', 'nyiso', 'isone',
+            'caiso', 'duk', 'bpat', 'tva', 'soco', 'fpl',
+            'cple', 'def', 'sceg', 'sc', 'pacw', 'nevp',
+            'azps', 'srp', 'pace', 'pnm'
+        ];
+
+        // Fetch Status for Header Data
+        try {
+            const statusRes = await fetch(`${API_BASE}/status`);
+            const statusData = await statusRes.json();
+
+            for (const region of regions) {
+                if (statusData[region] && statusData[region].latest) {
+                    const rData = statusData[region].latest;
+
+                    // Update Load
+                    const loadEl = document.getElementById(`${region}-load`);
+                    if (loadEl) loadEl.innerText = rData.load_mw.toLocaleString() + " MW";
+
+                    // Update Price
+                    const priceEl = document.getElementById(`${region}-price`);
+                    if (priceEl) {
+                        if (rData.price_usd !== null && rData.price_usd !== 0) {
+                            priceEl.innerText = "$" + rData.price_usd.toFixed(2);
+                        } else {
+                            priceEl.innerText = "--";
+                        }
+                    }
+
+                    // Update Utilization Pill
+                    const utilEl = document.getElementById(`${region}-util`);
+                    if (utilEl) {
+                        const utilVal = Math.round(rData.utilization);
+                        utilEl.innerText = utilVal + "%";
+
+                        // Reset Classes
+                        utilEl.classList.remove('util-normal', 'util-warn', 'util-crit');
+
+                        if (utilVal >= 85) {
+                            utilEl.classList.add('util-crit');
+                        } else if (utilVal >= 75) {
+                            utilEl.classList.add('util-warn');
+                        } else {
+                            utilEl.classList.add('util-normal');
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.error("Status Fetch Error", e); }
+
+        // Fetch History for Charts
+        for (const region of regions) {
+            try {
+                const res = await fetch(`${API_BASE}/history?region=${region}`);
+                const history = await res.json();
+                if (history && history.length > 0) renderChart(region, history);
+            } catch (e) {}
+        }
+    }
+
+    updateDashboard();
+    setInterval(updateDashboard, 300000); // 5 Minutes
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+name: Deploy GridWatch
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  AZURE_FUNCTIONAPP_NAME: 'fa-gridwatch-nuclear-centralus'
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: 'src'
+  PYTHON_VERSION: '3.11'
+  STORAGE_ACCOUNT_NAME: 'gridwatchcn11302025'
+  CONTAINER_NAME: 'function-releases'
+
+jobs:
+  build-and-deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Log in to Azure CLI
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Build and Zip Artifact
+        shell: bash
+        run: |
+          mkdir build
+          cp -r ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/* build/
+
+          # Force a clean install for Linux
+          pip install -r build/requirements.txt --target build/.python_packages/lib/site-packages --platform manylinux2014_x86_64 --only-binary=:all: --implementation cp --python-version 3.11 --upgrade
+
+          cd build
+          zip -r ../app_package.zip .
+          cd ..
+          echo "Zip file created: $(ls -lh app_package.zip)"
+
+      - name: Upload to Blob and Deploy
+        shell: bash
+        run: |
+          # 1. Get Function App Resource Group
+          APP_RG=$(az functionapp list --query "[?name=='${{ env.AZURE_FUNCTIONAPP_NAME }}'].resourceGroup" -o tsv)
+          echo "Function App Resource Group: $APP_RG"
+
+          # 2. Get Storage Account Resource Group (Required to fetch keys)
+          STORAGE_RG=$(az storage account list --query "[?name=='${{ env.STORAGE_ACCOUNT_NAME }}'].resourceGroup" -o tsv)
+          echo "Storage Account Resource Group: $STORAGE_RG"
+
+          # 3. Fetch Storage Account Key (Allows Long-Lived SAS)
+          ACCOUNT_KEY=$(az storage account keys list --resource-group $STORAGE_RG --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --query "[0].value" -o tsv)
+
+          # 4. Create Container (Using Key)
+          az storage container create --name ${{ env.CONTAINER_NAME }} --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --account-key $ACCOUNT_KEY
+
+          # 5. Upload Zip (Using Key)
+          BLOB_NAME="app-${{ github.sha }}.zip"
+          az storage blob upload --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --container-name ${{ env.CONTAINER_NAME }} --name $BLOB_NAME --file app_package.zip --account-key $ACCOUNT_KEY
+
+          # 6. Generate 10-Year SAS Token (Using Key)
+          EXPIRY=$(date -u -d "5 years" '+%Y-%m-%dT%H:%MZ')
+          SAS_TOKEN=$(az storage blob generate-sas --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --container-name ${{ env.CONTAINER_NAME }} --name $BLOB_NAME --permissions r --expiry $EXPIRY --account-key $ACCOUNT_KEY -o tsv)
+
+          FULL_URL="https://${{ env.STORAGE_ACCOUNT_NAME }}.blob.core.windows.net/${{ env.CONTAINER_NAME }}/$BLOB_NAME?$SAS_TOKEN"
+
+          # 7. Update Function App Setting
+          az functionapp config appsettings set --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $APP_RG --settings WEBSITE_RUN_FROM_PACKAGE="$FULL_URL"
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    needs: build-and-deploy-backend
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Upload to Blob Storage
+        uses: azure/CLI@v1
+        with:
+          inlineScript: |
+            # DELETE the old single-file upload command
+            # USE THIS instead: Uploads everything in the 'frontend' folder
+            az storage blob upload-batch \
+              --account-name gridwatchcn11302025 \
+              --destination '$web' \
+              --source frontend \
+              --connection-string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
+              --overwrite

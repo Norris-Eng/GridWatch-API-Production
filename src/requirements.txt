@@ -1,0 +1,9 @@
+azure-functions
+azure-storage-file-datalake
+azure-data-tables
+numpy<2.0.0
+pandas<2.2.0
+cryptography==43.0.3
+openpyxl
+requests
+beautifulsoup4
