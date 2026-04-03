@@ -431,26 +431,21 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
 
             elif region_code == "SPP":
                 try:
-                    h_spp = { "User-Agent": UA, "Referer": "https://portal.spp.org/", "Accept": "application/json" }
-                    base_url = "https://pricecontourmap.spp.org/arcgis/rest/services/MarketMaps/RTBM_FeatureData/MapServer/0/query"
-                    params = { "where": "1=1", "outFields": "*", "f": "json" }
-                    r = requests.get(base_url, headers=h_spp, params=params, timeout=15)
+                    import io
+                    h_spp = { "User-Agent": UA, "Referer": "https://portal.spp.org/" }
+
+                    # Target the consolidated Integrated Marketplace CSV endpoint
+                    url_csv = "https://portal.spp.org/file-browser-api/download/rtbm-lmp-by-location?path=%2FRTBM-LMP-SL-latestInterval.csv"
+                    r = requests.get(url_csv, headers=h_spp, timeout=15)
 
                     if r.status_code == 200:
-                        features = r.json().get("features", [])
-                        if not features:
-                            diagnostic_log += "[SPP_P_NoFeat] "
+                        df = pd.read_csv(io.StringIO(r.text))
 
-                        lmps = []
-                        for f in features:
-                            val = f.get("attributes", {}).get("LMP")
-                            if val is not None:
-                                lmps.append(float(val))
-
-                        if lmps:
-                            price_usd = sum(lmps) / len(lmps)
+                        if not df.empty and "LMP" in df.columns:
+                            # Taking the mean of all nodes captures both East and West footprints.
+                            price_usd = float(df["LMP"].mean())
                         else:
-                            diagnostic_log += "[SPP_P_NoLMP] "
+                            diagnostic_log += "[SPP_P_NoLMPCol] "
                     else:
                         diagnostic_log += f"[SPP_P_HTTP_{r.status_code}] "
                 except Exception as e:
