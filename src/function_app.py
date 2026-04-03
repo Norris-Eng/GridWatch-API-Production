@@ -435,17 +435,26 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
                     base_url = "https://pricecontourmap.spp.org/arcgis/rest/services/MarketMaps/RTBM_FeatureData/MapServer/1/query"
                     params = { "where": "1=1", "outFields": "*", "f": "json" }
                     r = requests.get(base_url, headers=h_spp, params=params, timeout=15)
+
                     if r.status_code == 200:
                         features = r.json().get("features", [])
+                        if not features:
+                            diagnostic_log += "[SPP_P_NoFeat] "
+
                         lmps = []
                         for f in features:
                             val = f.get("attributes", {}).get("LMP")
                             if val is not None:
                                 lmps.append(float(val))
+
                         if lmps:
-                            # Derives system-wide load-weighted proxy; immune to hub renaming
                             price_usd = sum(lmps) / len(lmps)
-                except: pass
+                        else:
+                            diagnostic_log += "[SPP_P_NoLMP] "
+                    else:
+                        diagnostic_log += f"[SPP_P_HTTP_{r.status_code}] "
+                except Exception as e:
+                    diagnostic_log += f"[SPP_P_Ex_{str(e)[:10]}] "
 
             # =========================================================
             # 3. SAVE / AUDIT
