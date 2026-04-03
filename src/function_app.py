@@ -204,7 +204,7 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
                                 if val and val > 1000:
                                     load_mw = val
                                     source_ts = best_ts
-                except Exception: pass
+                except Exception as e: diagnostic_log += f"[ERCOT_L_Ex_{str(e)[:10]}] "
 
             elif region_code == "PJM":
                 try:
@@ -308,7 +308,7 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
                             if "MINN.HUB" in node.get("name", ""):
                                 price_usd = float(node.get("LMP", 0))
                                 break
-                except: pass
+                except Exception as e: diagnostic_log += f"[MISO_P_Ex_{str(e)[:10]}] "
 
             elif region_code == "ERCOT":
                 try:
@@ -323,7 +323,7 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
                                 if raw_val is not None:
                                     price_usd = float(raw_val)
                                     break
-                except: pass
+                except Exception as e: diagnostic_log += f"[ERCOT_P_Ex_{str(e)[:10]}] "
 
             elif region_code == "PJM":
                 try:
@@ -337,7 +337,7 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
                                 best = items[0]
                                 p = best.get('five_min_rtlmp') or best.get('totallmprt')
                                 if p: price_usd = float(p)
-                except: pass
+                except Exception as e: diagnostic_log += f"[PJM_P_Ex_{str(e)[:10]}] "
 
             # --- NYISO PATCH v2.9 (Strict Time Slicing) ---
             elif region_code == "NYISO":

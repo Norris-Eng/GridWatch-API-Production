@@ -10,10 +10,10 @@ Designed for programmatic demand-response, the system includes native endpoint t
 
 The pipeline is built on Azure Serverless infrastructure, managed as code via Terraform, and deployed via GitHub Actions.
 
-* **Compute:** Azure Linux Function App (Consumption Tier). Runs on highly specific cron boundaries (`0 */5 * * * *`) to map directly to standard ISO 5-minute Security-Constrained Economic Dispatch (SCED) cycles.
+* **Compute:** Azure Linux Function App (Consumption Tier). Runs on specific cron boundaries (`0 */5 * * * *`) to map to standard ISO 5-minute Security-Constrained Economic Dispatch (SCED) cycles.
 * **Hot State (API):** Azure Table Storage (`GridStatusLatest`). Allows sub-second reads for the frontend and API consumers without executing expensive file system scans.
 * **Cold Storage (Data Lake):** Azure Data Lake Storage Gen2 (Hierarchical Namespace). Raw payloads are partitioned by `Region/YYYY/MM/DD` into a `processed-silver` container for historical big-data analytics.
-* **CI/CD Build:** The GitHub Actions pipeline forces a `manylinux2014_x86_64` Python wheel compilation to ensure native C-extension compatibility in the Azure Linux environment before deploying the artifact via a 5-year SAS token.
+* **CI/CD Build:** The GitHub Actions pipeline forces a `manylinux2014_x86_64` Python wheel compilation to ensure native C-extension compatibility. Deployment is executed natively through the Azure Resource Manager (`config-zip`), maintaining internal credential boundaries and bypassing external blob storage.
 
 ### Engineering for Upstream Chaos
 
