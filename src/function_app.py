@@ -432,7 +432,7 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
             elif region_code == "SPP":
                 try:
                     h_spp = { "User-Agent": UA, "Referer": "https://portal.spp.org/", "Accept": "application/json" }
-                    base_url = "https://pricecontourmap.spp.org/arcgis/rest/services/MarketMaps/RTBM_FeatureData/MapServer/1/query"
+                    base_url = "https://pricecontourmap.spp.org/arcgis/rest/services/MarketMaps/RTBM_FeatureData/MapServer/0/query"
                     params = { "where": "1=1", "outFields": "*", "f": "json" }
                     r = requests.get(base_url, headers=h_spp, params=params, timeout=15)
 
