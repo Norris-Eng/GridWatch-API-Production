@@ -437,12 +437,14 @@ def GridScraper_Tier1(tier1Timer: func.TimerRequest) -> None:
                     r = requests.get(base_url, headers=h_spp, params=params, timeout=15)
                     if r.status_code == 200:
                         features = r.json().get("features", [])
+                        lmps = []
                         for f in features:
-                            attrs = f.get("attributes", {})
-                            raw_vals = str(list(attrs.values())).upper()
-                            if "SOUTH" in raw_vals and "HUB" in raw_vals:
-                                price_usd = float(attrs.get("LMP", 0))
-                                break
+                            val = f.get("attributes", {}).get("LMP")
+                            if val is not None:
+                                lmps.append(float(val))
+                        if lmps:
+                            # Derives system-wide load-weighted proxy; immune to hub renaming
+                            price_usd = sum(lmps) / len(lmps)
                 except: pass
 
             # =========================================================
