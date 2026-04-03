@@ -44,35 +44,14 @@ jobs:
           cd ..
           echo "Zip file created: $(ls -lh app_package.zip)"
 
-      - name: Upload to Blob and Deploy
+      - name: Deploy to Azure Function
         shell: bash
         run: |
-          # 1. Get Function App Resource Group
+          # Retrieve Resource Group dynamically
           APP_RG=$(az functionapp list --query "[?name=='${{ env.AZURE_FUNCTIONAPP_NAME }}'].resourceGroup" -o tsv)
-          echo "Function App Resource Group: $APP_RG"
 
-          # 2. Get Storage Account Resource Group (Required to fetch keys)
-          STORAGE_RG=$(az storage account list --query "[?name=='${{ env.STORAGE_ACCOUNT_NAME }}'].resourceGroup" -o tsv)
-          echo "Storage Account Resource Group: $STORAGE_RG"
-
-          # 3. Fetch Storage Account Key (Allows Long-Lived SAS)
-          ACCOUNT_KEY=$(az storage account keys list --resource-group $STORAGE_RG --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --query "[0].value" -o tsv)
-
-          # 4. Create Container (Using Key)
-          az storage container create --name ${{ env.CONTAINER_NAME }} --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --account-key $ACCOUNT_KEY
-
-          # 5. Upload Zip (Using Key)
-          BLOB_NAME="app-${{ github.sha }}.zip"
-          az storage blob upload --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --container-name ${{ env.CONTAINER_NAME }} --name $BLOB_NAME --file app_package.zip --account-key $ACCOUNT_KEY
-
-          # 6. Generate 10-Year SAS Token (Using Key)
-          EXPIRY=$(date -u -d "5 years" '+%Y-%m-%dT%H:%MZ')
-          SAS_TOKEN=$(az storage blob generate-sas --account-name ${{ env.STORAGE_ACCOUNT_NAME }} --container-name ${{ env.CONTAINER_NAME }} --name $BLOB_NAME --permissions r --expiry $EXPIRY --account-key $ACCOUNT_KEY -o tsv)
-
-          FULL_URL="https://${{ env.STORAGE_ACCOUNT_NAME }}.blob.core.windows.net/${{ env.CONTAINER_NAME }}/$BLOB_NAME?$SAS_TOKEN"
-
-          # 7. Update Function App Setting
-          az functionapp config appsettings set --name ${{ env.AZURE_FUNCTIONAPP_NAME }} --resource-group $APP_RG --settings WEBSITE_RUN_FROM_PACKAGE="$FULL_URL"
+          # Native internal zip deployment (bypasses SAS token generation)
+          az functionapp deployment source config-zip -g $APP_RG -n ${{ env.AZURE_FUNCTIONAPP_NAME }} --src app_package.zip
 
   deploy-frontend:
     runs-on: ubuntu-latest
