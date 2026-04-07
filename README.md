@@ -1,5 +1,7 @@
 # GRIDWATCH // US Grid Telemetry, Curtailment & Dispatch API
 
+![License](https://img.shields.io/badge/license-MIT-green)
+
 The US power grid does not expose a unified data stream. It is fractured across dozens of Independent System Operators (ISOs) and regulated Balancing Authorities, each publishing operational telemetry at varying intervals, in conflicting formats, and across different temporal horizons.
 
 GridWatch is a serverless ingestion pipeline that harmonizes this chaos. It scrapes, cleans, and standardizes real-time load (MW) and Locational Marginal Pricing (LMP) across 22 US grid regions, exposing the aggregated state via a low-latency REST API.
