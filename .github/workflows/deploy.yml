@@ -3,14 +3,14 @@ name: Deploy GridWatch
 on:
   push:
     branches:
-      - main
+      - none
   workflow_dispatch:
 
 env:
-  AZURE_FUNCTIONAPP_NAME: 'fa-gridwatch-nuclear-centralus'
+  AZURE_FUNCTIONAPP_NAME: 'fa-gridwatch-msbg-centralus'
   AZURE_FUNCTIONAPP_PACKAGE_PATH: 'src'
   PYTHON_VERSION: '3.11'
-  STORAGE_ACCOUNT_NAME: 'gridwatchcn11302025'
+  STORAGE_ACCOUNT_NAME: 'gridwatchcn05302026'
   CONTAINER_NAME: 'function-releases'
 
 jobs:
@@ -67,7 +67,7 @@ jobs:
             # DELETE the old single-file upload command
             # USE THIS instead: Uploads everything in the 'frontend' folder
             az storage blob upload-batch \
-              --account-name gridwatchcn11302025 \
+              --account-name gridwatchcn05302026 \
               --destination '$web' \
               --source frontend \
               --connection-string "${{ secrets.AZURE_STORAGE_CONNECTION_STRING }}" \
