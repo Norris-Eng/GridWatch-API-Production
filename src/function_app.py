@@ -892,7 +892,7 @@ def GetRegionHistory(req: func.HttpRequest) -> func.HttpResponse:
 def DashboardStatusProxy(req: func.HttpRequest) -> func.HttpResponse:
     try:
         referer = req.headers.get("Referer", "")
-        if not any(d in referer for d in ["gridwatch.live", "localhost"]): return func.HttpResponse("Unauthorized", status_code=403)
+        if not any(d in referer for d in ["gridwatch.live", "localhost", "gridwatchcn05302026.z19.web.core.windows.net"]): return func.HttpResponse("Unauthorized", status_code=403)
         key = os.environ.get('GRIDWATCH_INTERNAL_KEY')
         url = f"https://{os.environ.get('WEBSITE_HOSTNAME')}/api/status?code={key}"
         return func.HttpResponse(requests.get(url).text, mimetype="application/json")
@@ -902,7 +902,7 @@ def DashboardStatusProxy(req: func.HttpRequest) -> func.HttpResponse:
 def DashboardHistoryProxy(req: func.HttpRequest) -> func.HttpResponse:
     try:
         referer = req.headers.get("Referer", "")
-        if not any(d in referer for d in ["gridwatch.live", "localhost"]): return func.HttpResponse("Unauthorized", status_code=403)
+        if not any(d in referer for d in ["gridwatch.live", "localhost", "gridwatchcn05302026.z19.web.core.windows.net"]): return func.HttpResponse("Unauthorized", status_code=403)
         region = req.params.get('region')
         key = os.environ.get('GRIDWATCH_INTERNAL_KEY')
         url = f"https://{os.environ.get('WEBSITE_HOSTNAME')}/api/history?code={key}&region={region}"
