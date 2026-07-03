@@ -74,7 +74,7 @@
 </head>
 <body>
     <div class="container">
-        <div style="position: absolute; top: 20px; left: 25px; color: #00ff41; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);">METERNET</div>
+        <div style="position: absolute; top: 20px; left: 25px; color: #00ff41; font-weight: bold; letter-spacing: 2px; text-shadow: 0 0 10px rgba(0, 255, 65, 0.3);"><a href="https://msbg.co" target="_blank" class="nav-link"> METERNET </a></div>
         <h1><span class="status-indicator"></span>US GRID TELEMETRY</h1>
 
         <nav class="command-strip">
@@ -158,11 +158,6 @@
             <div>
                 <div class="col-header">EASTERN INTERCONNECTION</div>
                 <div class="sub-grid">
-                    <div class="metric-box" id="box-pjm">
-                        <div class="card-header"><div class="region-title">MID-ATLANTIC (PJM) <span id="pjm-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="pjm-price">--</span><span class="secondary-value" id="pjm-load">-- MW</span></div></div>
-                        <div class="chart-container"><canvas id="pjm-chart"></canvas></div>
-                    </div>
-
                     <div class="metric-box" id="box-nyiso">
                         <div class="card-header"><div class="region-title">NEW YORK (NYISO) <span id="nyiso-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="nyiso-price">--</span><span class="secondary-value" id="nyiso-load">-- MW</span></div></div>
                         <div class="chart-container"><canvas id="nyiso-chart"></canvas></div>
@@ -187,7 +182,10 @@
                         <div class="card-header"><div class="region-title">SOUTHERN (SOCO) <span id="soco-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="soco-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
                         <div class="chart-container"><canvas id="soco-chart"></canvas></div>
                     </div>
-
+ <div class="metric-box" id="box-pjm">
+                        <div class="card-header"><div class="region-title">MID-ATLANTIC (PJM) <span id="pjm-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value price-text" id="pjm-price">--</span><span class="secondary-value" id="pjm-load">-- MW</span></div></div>
+                        <div class="chart-container"><canvas id="pjm-chart"></canvas></div>
+                    </div>
                     <div class="metric-box" id="box-cple">
                         <div class="card-header"><div class="region-title">CAROLINAS (DUKE-E) <span id="cple-util" class="util-pill">--%</span></div><div class="live-data"><span class="primary-value load-text" id="cple-load">-- MW</span><span class="secondary-value dim-text">LOAD ONLY</span></div></div>
                         <div class="chart-container"><canvas id="cple-chart"></canvas></div>
